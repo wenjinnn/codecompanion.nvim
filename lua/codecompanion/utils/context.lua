@@ -34,12 +34,28 @@ end
 function M.get_visual_selection(bufnr)
   bufnr = bufnr or 0
 
-  api.nvim_feedkeys(ESC_FEEDKEY, "n", true)
-  api.nvim_feedkeys("gv", "x", false)
-  api.nvim_feedkeys(ESC_FEEDKEY, "n", true)
+  local mode = vim.fn.mode()
+  if is_visual_mode(mode) then
+    -- exit current mode to get visual marks refresh
+    vim.cmd(string.format('normal! %s%s', mode, ESC_FEEDKEY))
+  end
 
-  local end_line, end_col = unpack(api.nvim_buf_get_mark(bufnr, ">"))
-  local start_line, start_col = unpack(api.nvim_buf_get_mark(bufnr, "<"))
+  -- calculate visual selection range
+  local start = vim.fn.getpos("'<")
+  local end_ = vim.fn.getpos("'>")
+  local start_line = start[2]
+  local start_col = start[3]
+  local end_line = end_[2]
+  local end_col = end_[3]
+  -- A user can start visual selection at the end and move backwards
+  -- Normalize the range to start < end
+  if start_line == end_line and end_col < start_col then
+    end_col, start_col = start_col, end_col
+  elseif end_line < start_line then
+    start_line, end_line = end_line, start_line
+    start_col, end_col = end_col, start_col
+  end
+
   local lines = api.nvim_buf_get_lines(bufnr, start_line - 1, end_line, false)
 
   -- get whole buffer if there is no current/previous visual selection
