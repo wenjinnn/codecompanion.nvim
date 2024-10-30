@@ -41,23 +41,29 @@ function M.get_visual_selection(bufnr)
   end
 
   -- calculate visual selection range
-  local start = vim.fn.getpos("'<")
-  local end_ = vim.fn.getpos("'>")
-  local start_line = start[2]
-  local start_col = start[3]
-  local end_line = end_[2]
-  local end_col = end_[3]
+  local start_pos = vim.fn.getpos("v")
+  local end_pos = vim.fn.getpos(".")
+  local start_line = start_pos[2]
+  local start_col = start_pos[3]
+  local end_line = end_pos[2]
+  local end_col = end_pos[3]
   -- A user can start visual selection at the end and move backwards
   -- Normalize the range to start < end
-  if start_line == end_line and end_col < start_col then
-    end_col, start_col = start_col, end_col
-  elseif end_line < start_line then
+  if
+      start_line > end_line or (start_line == end_line and start_col > end_col)
+  then
+    start_pos, end_pos = end_pos, start_pos
     start_line, end_line = end_line, start_line
     start_col, end_col = end_col, start_col
   end
-
   local lines = api.nvim_buf_get_lines(bufnr, start_line - 1, end_line, false)
-
+  -- Handle partial lines
+  if #lines == 1 then
+    lines[1] = lines[1]:sub(start_col, end_col)
+  else
+    lines[1] = lines[1]:sub(start_col)
+    lines[#lines] = lines[#lines]:sub(1, end_col)
+  end
   -- get whole buffer if there is no current/previous visual selection
   if start_line == 0 then
     lines = api.nvim_buf_get_lines(bufnr, 0, -1, false)
@@ -72,9 +78,8 @@ function M.get_visual_selection(bufnr)
   end_col = math.min(end_col, #lines[#lines] - 1) + 1
 
   -- shorten first/last line according to start_col/end_col
-  lines[#lines] = lines[#lines]:sub(1, end_col)
-  lines[1] = lines[1]:sub(start_col)
-
+  -- lines[#lines] = lines[#lines]:sub(1, end_col)
+  -- lines[1] = lines[1]:sub(start_col)
   return lines, start_line, start_col, end_line, end_col
 end
 
